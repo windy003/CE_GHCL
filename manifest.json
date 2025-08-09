@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub Code Line Counter",
+  "version": "1.0",
+  "description": "Send GitHub repositories to remote server for code line counting",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://github.com/*",
+    "http://*/",
+    "https://*/",
+    "*://windy.run/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "GitHub Code Line Counter"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://github.com/*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
