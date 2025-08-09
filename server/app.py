@@ -25,9 +25,16 @@ SUPPORTED_EXTENSIONS = {
     '.ts': 'TypeScript',
     '.tsx': 'TypeScript React',
     '.py': 'Python',
+    '.pyx': 'Cython',
+    '.pyi': 'Python Interface',
     '.java': 'Java',
     '.cpp': 'C++',
+    '.cxx': 'C++',
+    '.cc': 'C++',
     '.c': 'C',
+    '.h': 'C Header',
+    '.hpp': 'C++ Header',
+    '.hxx': 'C++ Header',
     '.cs': 'C#',
     '.php': 'PHP',
     '.rb': 'Ruby',
@@ -35,19 +42,72 @@ SUPPORTED_EXTENSIONS = {
     '.rs': 'Rust',
     '.swift': 'Swift',
     '.kt': 'Kotlin',
+    '.kts': 'Kotlin Script',
     '.scala': 'Scala',
     '.sh': 'Shell',
+    '.bash': 'Bash',
+    '.zsh': 'Zsh',
+    '.fish': 'Fish',
+    '.ps1': 'PowerShell',
+    '.bat': 'Batch',
+    '.cmd': 'Command',
     '.html': 'HTML',
+    '.htm': 'HTML',
+    '.xml': 'XML',
+    '.xhtml': 'XHTML',
     '.css': 'CSS',
     '.scss': 'SCSS',
+    '.sass': 'Sass',
     '.less': 'LESS',
+    '.styl': 'Stylus',
     '.vue': 'Vue',
+    '.svelte': 'Svelte',
     '.dart': 'Dart',
     '.r': 'R',
-    '.m': 'Objective-C',
+    '.R': 'R',
+    '.m': 'Objective-C/MATLAB',
     '.mm': 'Objective-C++',
     '.pl': 'Perl',
-    '.lua': 'Lua'
+    '.pm': 'Perl Module',
+    '.lua': 'Lua',
+    '.sql': 'SQL',
+    '.json': 'JSON',
+    '.yaml': 'YAML',
+    '.yml': 'YAML',
+    '.toml': 'TOML',
+    '.ini': 'INI',
+    '.cfg': 'Config',
+    '.conf': 'Config',
+    '.md': 'Markdown',
+    '.rst': 'reStructuredText',
+    '.tex': 'LaTeX',
+    '.vim': 'Vim Script',
+    '.el': 'Emacs Lisp',
+    '.clj': 'Clojure',
+    '.cljs': 'ClojureScript',
+    '.hs': 'Haskell',
+    '.elm': 'Elm',
+    '.ex': 'Elixir',
+    '.exs': 'Elixir Script',
+    '.erl': 'Erlang',
+    '.hrl': 'Erlang Header',
+    '.ml': 'OCaml',
+    '.mli': 'OCaml Interface',
+    '.fs': 'F#',
+    '.fsx': 'F# Script',
+    '.jl': 'Julia',
+    '.nim': 'Nim',
+    '.cr': 'Crystal',
+    '.zig': 'Zig',
+    '.v': 'V/Verilog',
+    '.sv': 'SystemVerilog',
+    '.vhd': 'VHDL',
+    '.vhdl': 'VHDL',
+    '.dockerfile': 'Dockerfile',
+    '.makefile': 'Makefile',
+    '.cmake': 'CMake',
+    '.gradle': 'Gradle',
+    '.sbt': 'SBT'
 }
 
 def execute_command(command, cwd=None):
@@ -74,28 +134,72 @@ def count_code_lines(directory):
     total_lines = 0
     file_stats = {}
     
+    # 特殊文件名（无扩展名但需要统计的文件）
+    SPECIAL_FILES = {
+        'dockerfile': 'Dockerfile',
+        'makefile': 'Makefile', 
+        'rakefile': 'Rakefile',
+        'gemfile': 'Gemfile',
+        'podfile': 'Podfile',
+        'vagrantfile': 'Vagrantfile',
+        'jenkinsfile': 'Jenkinsfile',
+        'fastfile': 'Fastfile',
+        'appfile': 'Appfile'
+    }
+    
     for root, dirs, files in os.walk(directory):
-        # 跳过常见的非代码目录
-        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in [
-            'node_modules', '__pycache__', 'dist', 'build', 'target', 'bin', 'obj'
+        # 跳过常见的非代码目录，但减少过滤
+        dirs[:] = [d for d in dirs if d not in [
+            'node_modules', '__pycache__', '.git', 'dist', 'build', 'target', 
+            'bin', 'obj', '.gradle', '.idea', '.vscode', '.vs'
         ]]
         
         for file in files:
-            if file.startswith('.'):
+            file_path = os.path.join(root, file)
+            file_lower = file.lower()
+            _, ext = os.path.splitext(file_lower)
+            
+            # 跳过二进制文件和特定文件
+            if any(file_lower.endswith(suffix) for suffix in [
+                '.exe', '.dll', '.so', '.dylib', '.a', '.o', '.obj',
+                '.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg', '.webp',
+                '.mp4', '.avi', '.mov', '.wmv', '.mp3', '.wav', '.ogg',
+                '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2',
+                '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+                '.lock', '.log', '.tmp', '.cache', '.pid'
+            ]):
                 continue
                 
-            file_path = os.path.join(root, file)
-            _, ext = os.path.splitext(file.lower())
+            # 检查特殊文件名
+            is_special_file = False
+            for special_name, lang in SPECIAL_FILES.items():
+                if file_lower == special_name or file_lower.endswith('/' + special_name):
+                    ext = f'.{special_name}'
+                    if ext not in SUPPORTED_EXTENSIONS:
+                        SUPPORTED_EXTENSIONS[ext] = lang
+                    is_special_file = True
+                    break
             
-            if ext in SUPPORTED_EXTENSIONS:
+            # 统计代码文件
+            if ext in SUPPORTED_EXTENSIONS or is_special_file:
                 try:
-                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        lines = len(f.readlines())
+                    # 尝试多种编码
+                    content = None
+                    for encoding in ['utf-8', 'utf-16', 'iso-8859-1', 'cp1252']:
+                        try:
+                            with open(file_path, 'r', encoding=encoding) as f:
+                                content = f.read()
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                    
+                    if content is not None:
+                        lines = len(content.splitlines())
                         total_lines += lines
                         
                         if ext not in file_stats:
                             file_stats[ext] = {
-                                'language': SUPPORTED_EXTENSIONS[ext],
+                                'language': SUPPORTED_EXTENSIONS.get(ext, 'Unknown'),
                                 'files': 0,
                                 'lines': 0
                             }
